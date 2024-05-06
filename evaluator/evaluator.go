@@ -14,7 +14,7 @@ var (
 func Eval(node ast.Node) object.Object {
 	switch node := node.(type) {
 	case *ast.Program:
-		return evalStatements(node.Statements)
+		return evalProgram(node)
 	case *ast.ExpressionStatement:
 		return Eval(node.Expression)
 	case *ast.IntegerLiteral:
@@ -29,11 +29,38 @@ func Eval(node ast.Node) object.Object {
 		right := Eval(node.Right)
 		return evalInfixExpression(node.Operator, left, right)
 	case *ast.BlockStatement:
-		return evalStatements(node.Statements)
+		return evalBlockStatements(node)
 	case *ast.IfExpression:
 		return evalIfExpression(node)
+	case *ast.ReturnStatement:
+		val := Eval(node.ReturnValue)
+		return &object.ReturnValue{Value: val}
 	}
 	return nil
+}
+
+func evalBlockStatements(bs *ast.BlockStatement) object.Object {
+	var res object.Object
+
+	for _, stmt := range bs.Statements {
+		res = Eval(stmt)
+		if res != nil && res.Type() == object.RETURN_VALUE_OBJ {
+			return res
+		}
+	}
+	return res
+}
+
+func evalProgram(p *ast.Program) object.Object {
+	var res object.Object
+
+	for _, stmt := range p.Statements {
+		res = Eval(stmt)
+		if returnValue, ok := res.(*object.ReturnValue); ok {
+			return returnValue.Value
+		}
+	}
+	return res
 }
 
 func evalIfExpression(ie *ast.IfExpression) object.Object {
@@ -86,15 +113,6 @@ func nativeBoolToBooleanObject(input bool) object.Object {
 	return FALSE
 }
 
-func evalStatements(stmts []ast.Statement) object.Object {
-	var res object.Object
-
-	for _, stmt := range stmts {
-		res = Eval(stmt)
-	}
-	return res
-}
-
 func evalInfixExpression(op string, left, right object.Object) object.Object {
 	switch {
 	case left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ:
@@ -133,6 +151,18 @@ func evalIntegerInfixExpression(op string, left, right object.Object) object.Obj
 		return NULL
 	}
 }
+
+//func evalStatements(stmts []ast.Statement) object.Object {
+//	var res object.Object
+//
+//	for _, stmt := range stmts {
+//		res = Eval(stmt)
+//		if returnValue, ok := res.(*object.ReturnValue); ok {
+//			return returnValue.Value
+//		}
+//	}
+//	return res
+//}
 
 func isTruthy(obj object.Object) bool {
 	switch obj {
