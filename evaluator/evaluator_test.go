@@ -93,7 +93,6 @@ func testBooleanObject(t *testing.T, obj object.Object, expected bool) bool {
 		t.Errorf("object is not Boolean. got=%T(%+v)", obj, obj)
 		return false
 	}
-
 	if res.Value != expected {
 		t.Errorf("object has wrong value. got=%t,want=%t", res.Value, expected)
 		return false
@@ -118,4 +117,37 @@ func TestBangOperator(t *testing.T) {
 		eval := testEval(ts.input)
 		testBooleanObject(t, eval, ts.expected)
 	}
+}
+
+func TestIfElseExpression(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected any
+	}{
+		{"if (true){10}", 10},
+		{"if (false){10}", nil},
+		{"if (1){10}", 10},
+		{"if (1<2){10}", 10},
+		{"if (1>2){10}", nil},
+		{"if (1>2){10}else{20}", 20},
+		{"if (1<2){10}else{20}", 10},
+	}
+
+	for _, ts := range tests {
+		eval := testEval(ts.input)
+		integer, ok := ts.expected.(int)
+		if ok {
+			testIntegerObject(t, eval, int64(integer))
+		} else {
+			testNullObject(t, eval)
+		}
+	}
+}
+
+func testNullObject(t *testing.T, obj object.Object) bool {
+	if obj != NULL {
+		t.Errorf("object is not NULL. got=%T (%+v)", obj, obj)
+		return false
+	}
+	return true
 }
