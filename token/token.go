@@ -21,9 +21,11 @@ const (
 	ILLEGAL = "ILLEGAL"
 	EOF     = "EOF"
 	// 标识符+字面量
-	IDENT  = "IDENT" // add, foobar, x, y, ...
-	INT    = "INT"
-	STRING = "STRING"
+	IDENT    = "IDENT" // add, foobar, x, y, ...
+	INT      = "INT"
+	STRING   = "STRING"
+	LBRACKET = "["
+	RBRACKET = "]"
 	// 运算符
 	ASSIGN   = "="
 	PLUS     = "+"
