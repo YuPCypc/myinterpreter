@@ -15,6 +15,7 @@ var keywords = map[string]TokenType{
 	"if":     IF,
 	"else":   ELSE,
 	"return": RETURN,
+	"macro":  MACRO,
 }
 
 const (
@@ -56,6 +57,9 @@ const (
 	//二元判断
 	EQ     = "=="
 	NOT_EQ = "!="
+
+	//宏
+	MACRO = "MACRO"
 )
 
 func LookupIdent(ident string) TokenType {
