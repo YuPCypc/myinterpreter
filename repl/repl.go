@@ -4,18 +4,18 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"myinterpreter/evaluator"
+	"myinterpreter/compiler"
 	"myinterpreter/lexer"
-	"myinterpreter/object"
 	"myinterpreter/parser"
+	"myinterpreter/vm"
 )
 
 const PROMPT = ">> "
 
 func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
-	env := object.NewEnvironment()
-	macroEnv := object.NewEnvironment()
+	//env := object.NewEnvironment()
+	//macroEnv := object.NewEnvironment()
 
 	for {
 		fmt.Fprintf(out, PROMPT)
@@ -32,14 +32,29 @@ func Start(in io.Reader, out io.Writer) {
 			printParseErrors(out, p.Errors())
 			continue
 		}
-		evaluator.Definemacros(program, macroEnv)
-		expanded := evaluator.ExpandMacro(program, macroEnv)
-		eval := evaluator.Eval(expanded, env)
-		if eval != nil {
-			io.WriteString(out, eval.Inspect())
-			io.WriteString(out, "\n")
-		}
+		//evaluator.Definemacros(program, macroEnv)
+		//expanded := evaluator.ExpandMacro(program, macroEnv)
+		//eval := evaluator.Eval(expanded, env)
+		//if eval != nil {
+		//	io.WriteString(out, eval.Inspect())
+		//	io.WriteString(out, "\n")
+		//}
 
+		compile := compiler.New()
+		err := compile.Compile(program)
+		if err != nil {
+			fmt.Fprintf(out, "Compilation failed:\n %s\n", err)
+			continue
+		}
+		ma := vm.New(compile.Bytecode())
+		err = ma.Run()
+		if err != nil {
+			fmt.Fprintf(out, "Executing bytecode failed:\n %s\n", err)
+			continue
+		}
+		stackTop := ma.StackTop()
+		io.WriteString(out, stackTop.Inspect())
+		io.WriteString(out, "\n")
 	}
 }
 
