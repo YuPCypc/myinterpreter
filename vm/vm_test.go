@@ -37,44 +37,18 @@ func runVmTests(t *testing.T, tests []vmTestCase) {
 
 	for _, ts := range tests {
 		program := parse(ts.input)
-		compiler := compiler.New()
-		err := compiler.Compile(program)
+		compile := compiler.New()
+		err := compile.Compile(program)
 		if err != nil {
 			t.Fatalf("compiler error: %s", err)
 		}
-		vm := New(compiler.Bytecode())
+		vm := New(compile.Bytecode())
 		err = vm.Run()
 		if err != nil {
 			t.Fatalf("vm error: %s", err)
 		}
 		stackElem := vm.LastPoppedStackElem()
 		testExpectedObject(t, ts.expected, stackElem)
-	}
-}
-
-func testExpectedObject(t *testing.T, expected any, actual object.Object) {
-	t.Helper()
-
-	switch expected := expected.(type) {
-	case int:
-		err := testIntegerObject(actual, int64(expected))
-		if err != nil {
-			t.Errorf("testIntegerObject failed: %s", err)
-		}
-	case bool:
-		err := testBooleanObject(actual, expected)
-		if err != nil {
-			t.Errorf("testBooleanObject failed: %s", err)
-		}
-	case *object.Null:
-		if actual != Null {
-			t.Errorf("object is not Null: %T (%+v)", actual, actual)
-		}
-	case string:
-		err := testStringObject(expected, actual)
-		if err != nil {
-			t.Errorf("testStringObject failed:%s", err)
-		}
 	}
 }
 
@@ -151,6 +125,68 @@ func TestBooleanExpressions(t *testing.T) {
 	runVmTests(t, tests)
 }
 
+func testExpectedObject(t *testing.T, expected any, actual object.Object) {
+	t.Helper()
+
+	switch expected := expected.(type) {
+	case int:
+		err := testIntegerObject(actual, int64(expected))
+		if err != nil {
+			t.Errorf("testIntegerObject failed: %s", err)
+		}
+	case bool:
+		err := testBooleanObject(actual, expected)
+		if err != nil {
+			t.Errorf("testBooleanObject failed: %s", err)
+		}
+	case *object.Null:
+		if actual != Null {
+			t.Errorf("object is not Null: %T (%+v)", actual, actual)
+		}
+	case string:
+		err := testStringObject(expected, actual)
+		if err != nil {
+			t.Errorf("testStringObject failed:%s", err)
+		}
+	case []int:
+		array, ok := actual.(*object.Array)
+		if !ok {
+			t.Errorf("object not Array:%T(%+v)", actual, actual)
+			return
+		}
+		if len(array.Elements) != len(expected) {
+			t.Errorf("wrong num of elements. want=%d,got=%d", len(expected), len(array.Elements))
+			return
+		}
+		for i, elem := range expected {
+			err := testIntegerObject(array.Elements[i], int64(elem))
+			if err != nil {
+				t.Errorf("testIntegerObject failed:%s", err)
+			}
+		}
+	case map[object.HashKey]int64:
+		hash, ok := actual.(*object.Hash)
+		if !ok {
+			t.Errorf("object is not Hash. got=%T(%+v)", actual, actual)
+		}
+		if len(hash.Pairs) != len(expected) {
+			t.Errorf("hash has wrong number of Pairs. Want=%d,got=%d", len(expected), len(hash.Pairs))
+			return
+		}
+
+		for expectedKey, expectedValue := range expected {
+			pair, ok := hash.Pairs[expectedKey]
+			if !ok {
+				t.Errorf("no pairs for given key in Pairs")
+			}
+			err := testIntegerObject(pair.Value, expectedValue)
+			if err != nil {
+				t.Errorf("testIntegerObject failed : %s", err)
+			}
+		}
+	}
+}
+
 func TestConditionals(t *testing.T) {
 	tests := []vmTestCase{
 		{"if (true) { 10 }", 10},
@@ -182,6 +218,55 @@ func TestStringExpressions(t *testing.T) {
 		{`"monkey"`, "monkey"},
 		{`"mon" + "key"`, "monkey"},
 		{`"mon" + "key" + "banana"`, "monkeybanana"},
+	}
+	runVmTests(t, tests)
+}
+
+func TestArrayLiterals(t *testing.T) {
+	tests := []vmTestCase{
+		{"[]", []int{}},
+		{"[1,2,3]", []int{1, 2, 3}},
+		{"[1+2,3*4,5*6,10/3]", []int{3, 12, 30, 3}},
+	}
+	runVmTests(t, tests)
+}
+
+func TestHashLiteral(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			"{}",
+			map[object.HashKey]int64{},
+		},
+		{
+			"{1:2,2:3}",
+			map[object.HashKey]int64{
+				(&object.Integer{Value: 1}).HashKey(): 2,
+				(&object.Integer{Value: 2}).HashKey(): 3,
+			},
+		},
+		{
+			"{1+1:2*2,3+3:4*4}",
+			map[object.HashKey]int64{
+				(&object.Integer{Value: 2}).HashKey(): 4,
+				(&object.Integer{Value: 6}).HashKey(): 16,
+			},
+		},
+	}
+	runVmTests(t, tests)
+}
+
+func TestIndexExpressions(t *testing.T) {
+	tests := []vmTestCase{
+		{"[1, 2, 3][1]", 2},
+		{"[1, 2, 3][0 + 2]", 3},
+		{"[[1, 1, 1]][0][0]", 1},
+		{"[][0]", Null},
+		{"[1, 2, 3][99]", Null},
+		{"[1][-1]", Null},
+		{"{1: 1, 2: 2}[1]", 1},
+		{"{1: 1, 2: 2}[2]", 2},
+		{"{1: 1}[0]", Null},
+		{"{}[0]", Null},
 	}
 	runVmTests(t, tests)
 }
