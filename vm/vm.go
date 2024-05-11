@@ -7,7 +7,10 @@ import (
 	"myinterpreter/object"
 )
 
-const StackSize = 2048
+const (
+	GlobalsSize = 65536
+	StackSize   = 2048
+)
 
 var (
 	True  = &object.Boolean{Value: true}
@@ -19,8 +22,9 @@ type VM struct {
 	constants    []object.Object
 	instructions code.Instructions
 
-	stack []object.Object
-	sp    int //stack point，指向下一个开始的位置
+	stack   []object.Object
+	sp      int //stack point，指向下一个开始的位置
+	globals []object.Object
 }
 
 func New(bytecode *compiler.Bytecode) *VM {
@@ -29,6 +33,7 @@ func New(bytecode *compiler.Bytecode) *VM {
 		constants:    bytecode.Constants,
 		stack:        make([]object.Object, StackSize),
 		sp:           0,
+		globals:      make([]object.Object, GlobalsSize),
 	}
 }
 
@@ -106,6 +111,18 @@ func (vm *VM) Run() error {
 			if err != nil {
 				return err
 			}
+		case code.OpSetGlobal:
+			globalIdx := code.ReadUint16(vm.instructions[ip+1:])
+			ip += 2
+			vm.globals[globalIdx] = vm.pop()
+		case code.OpGetGlobal:
+			globalIdx := code.ReadUint16(vm.instructions[ip+1:])
+			ip += 2
+			err := vm.push(vm.globals[globalIdx])
+			if err != nil {
+				return err
+			}
+
 		case code.OpPop:
 			vm.pop()
 		}
@@ -225,4 +242,10 @@ func (vm *VM) pop() object.Object {
 
 func (vm *VM) LastPoppedStackElem() object.Object {
 	return vm.stack[vm.sp]
+}
+
+func NewWithGlobalsStore(bytecode *compiler.Bytecode, s []object.Object) *VM {
+	vm := New(bytecode)
+	vm.globals = s
+	return vm
 }
