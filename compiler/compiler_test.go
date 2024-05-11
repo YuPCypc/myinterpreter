@@ -193,7 +193,23 @@ func testConstants(t *testing.T, expected []any, actual []object.Object) error {
 			if err != nil {
 				return fmt.Errorf("constant %d -- testIntegerObject failed:%s", i, err.Error())
 			}
+		case string:
+			err := testStringObject(actual[i], constType)
+			if err != nil {
+				return fmt.Errorf("constant %d - testStringObject failed:%s", i, err)
+			}
 		}
+	}
+	return nil
+}
+
+func testStringObject(actual object.Object, expected string) error {
+	res, ok := actual.(*object.String)
+	if !ok {
+		return fmt.Errorf("object is not string.got=%T(%+v)", actual, actual)
+	}
+	if res.Value != expected {
+		return fmt.Errorf("object has wrong value. got=%q,want=%q", res.Value, expected)
 	}
 	return nil
 }
@@ -341,6 +357,30 @@ func TestGlobalLetStatements(t *testing.T) {
 				code.Make(code.OpGetGlobal, 0),
 				code.Make(code.OpSetGlobal, 1),
 				code.Make(code.OpGetGlobal, 1),
+				code.Make(code.OpPop),
+			},
+		},
+	}
+	runCompilerTests(t, tests)
+}
+
+func TestStringExpressions(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input:             `"monkey"`,
+			expectedConstants: []any{"monkey"},
+			expectedInstructions: []code.Instructions{
+				code.Make(code.OpConstant, 0),
+				code.Make(code.OpPop),
+			},
+		},
+		{
+			input:             `"mon"+"key"`,
+			expectedConstants: []any{"mon", "key"},
+			expectedInstructions: []code.Instructions{
+				code.Make(code.OpConstant, 0),
+				code.Make(code.OpConstant, 1),
+				code.Make(code.OpAdd),
 				code.Make(code.OpPop),
 			},
 		},
