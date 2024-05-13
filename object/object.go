@@ -5,29 +5,45 @@ import (
 	"fmt"
 	"hash/fnv"
 	"myinterpreter/ast"
+	"myinterpreter/code"
 	"strings"
 )
 
 type ObjectType string
 
 const (
-	INTEGER_OBJ      = "INTEGER"
-	BOOLEAN_OBJ      = "BOOLEAN"
-	NULL_OBJ         = "NULL"
-	RETURN_VALUE_OBJ = "RETURN_VALUE"
-	ERROR_OBJ        = "ERROR"
-	FUNCTION_OBJ     = "FUNCTION"
-	STRING_OBJ       = "STRING"
-	BUILTIN_OBJ      = "BUILTIN"
-	ARRAY_OBJ        = "ARRAY"
-	HASH_OBJ         = "HASH"
-	QUOTE_OBJ        = "QUOTE"
-	MACRO_OBJ        = "MACRO"
+	INTEGER_OBJ           = "INTEGER"
+	BOOLEAN_OBJ           = "BOOLEAN"
+	NULL_OBJ              = "NULL"
+	RETURN_VALUE_OBJ      = "RETURN_VALUE"
+	ERROR_OBJ             = "ERROR"
+	FUNCTION_OBJ          = "FUNCTION"
+	STRING_OBJ            = "STRING"
+	BUILTIN_OBJ           = "BUILTIN"
+	ARRAY_OBJ             = "ARRAY"
+	HASH_OBJ              = "HASH"
+	QUOTE_OBJ             = "QUOTE"
+	MACRO_OBJ             = "MACRO"
+	COMPILED_FUNCTION_OBJ = "COMPILED_FUNCTION_OBJ"
 )
 
 type Object interface {
 	Type() ObjectType
 	Inspect() string
+}
+
+type CompiledFunction struct {
+	NumLocals     int //统计的局部变量的数目，用于虚拟机栈上预分配空间
+	NumParameters int
+	Instructions  code.Instructions
+}
+
+func (c *CompiledFunction) Type() ObjectType {
+	return COMPILED_FUNCTION_OBJ
+}
+
+func (c *CompiledFunction) Inspect() string {
+	return fmt.Sprintf("CompiledFunction[%p]", c)
 }
 
 type Integer struct {
