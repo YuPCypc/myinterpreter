@@ -183,7 +183,8 @@ func (vm *VM) Run() error {
 		case code.OpCall:
 			numArgs := int(ins[ip+1])
 			vm.currentFrame().ip += 1
-			err := vm.callFunction(numArgs)
+
+			err := vm.executeCall(numArgs)
 			if err != nil {
 				return err
 			}
@@ -216,7 +217,14 @@ func (vm *VM) Run() error {
 			if err != nil {
 				return err
 			}
-
+		case code.OpGetBuiltin:
+			builtinIdx := int(ins[ip+1])
+			vm.currentFrame().ip++
+			definition := object.Builtins[builtinIdx]
+			err := vm.push(definition.Builtin)
+			if err != nil {
+				return err
+			}
 		case code.OpPop:
 			vm.pop()
 		}
@@ -224,11 +232,31 @@ func (vm *VM) Run() error {
 	return nil
 }
 
-func (vm *VM) callFunction(numArgs int) error {
-	fn, ok := vm.stack[vm.sp-1-numArgs].(*object.CompiledFunction)
-	if !ok {
-		return fmt.Errorf("calling non-function")
+func (vm *VM) executeCall(numArgs int) error {
+	called := vm.stack[vm.sp-1-numArgs]
+	switch called := called.(type) {
+	case *object.CompiledFunction:
+		return vm.callFunction(called, numArgs)
+	case *object.Builtin:
+		return vm.callBuiltin(called, numArgs)
+	default:
+		return fmt.Errorf("calling non-function and not-built-in")
 	}
+}
+
+func (vm *VM) callBuiltin(builtin *object.Builtin, numArgs int) error {
+	args := vm.stack[vm.sp-numArgs : vm.sp]
+	res := builtin.Fn(args...)
+	vm.sp = vm.sp - numArgs - 1
+	if res != nil {
+		vm.push(res)
+	} else {
+		vm.push(Null)
+	}
+	return nil
+}
+
+func (vm *VM) callFunction(fn *object.CompiledFunction, numArgs int) error {
 	if numArgs != fn.NumParameters {
 		return fmt.Errorf("wrong number of arguments: want=%d, got=%d",
 			fn.NumParameters, numArgs)
