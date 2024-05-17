@@ -38,6 +38,9 @@ const (
 	OpGetLocal
 	OpSetLocal
 	OpGetBuiltin
+	OpClosure
+	OpGetFree
+	OpCurrentClosure
 )
 
 type Definition struct {
@@ -46,33 +49,36 @@ type Definition struct {
 }
 
 var definitions = map[Opcode]*Definition{
-	OpConstant:      &Definition{Name: "OpConstant", OperandWidths: []int{2}},
-	OpAdd:           {"OpAdd", []int{}},
-	OpPop:           {"OpPop", []int{}},
-	OpSub:           {"OpSub", []int{}},
-	OpMul:           {"OpMul", []int{}},
-	OpDiv:           {"OpDiv", []int{}},
-	OpTrue:          {"OpTrue", []int{}},
-	OpFalse:         {"OpFalse", []int{}},
-	OpEqual:         {"OpEqual", []int{}},
-	OpNotEqual:      {"OpNotEqual", []int{}},
-	OpGreaterThan:   {"OpGreaterThan", []int{}},
-	OpMinus:         {"OpMinus", []int{}},
-	OpBang:          {"OpBang", []int{}},
-	OpJumpNotTruthy: {"OpJumpNotTruthy", []int{2}},
-	OpJump:          {"OpJump", []int{2}},
-	OpNull:          {"OpNull", []int{}},
-	OpGetGlobal:     {"OpGetGlobal", []int{2}},
-	OpSetGlobal:     {"OpSetGlobal", []int{2}},
-	OpArray:         {"OpArray", []int{2}}, //操作数为数组中元素个数
-	OpHash:          {"OpHash", []int{2}},  //操作数为hash中k个数和v个数之和
-	OpIndex:         {"OpIndex", []int{}},
-	OpReturnValue:   {"OpReturnValue", []int{}},
-	OpReturn:        {"OpReturn", []int{}},
-	OpGetLocal:      {"OpGetLocal", []int{1}},
-	OpSetLocal:      {"OpSetLocal", []int{1}},
-	OpCall:          {"OpCall", []int{1}}, //操作数为参数个数
-	OpGetBuiltin:    {"OpGetBuiltin", []int{1}},
+	OpConstant:       &Definition{Name: "OpConstant", OperandWidths: []int{2}},
+	OpAdd:            {"OpAdd", []int{}},
+	OpPop:            {"OpPop", []int{}},
+	OpSub:            {"OpSub", []int{}},
+	OpMul:            {"OpMul", []int{}},
+	OpDiv:            {"OpDiv", []int{}},
+	OpTrue:           {"OpTrue", []int{}},
+	OpFalse:          {"OpFalse", []int{}},
+	OpEqual:          {"OpEqual", []int{}},
+	OpNotEqual:       {"OpNotEqual", []int{}},
+	OpGreaterThan:    {"OpGreaterThan", []int{}},
+	OpMinus:          {"OpMinus", []int{}},
+	OpBang:           {"OpBang", []int{}},
+	OpJumpNotTruthy:  {"OpJumpNotTruthy", []int{2}},
+	OpJump:           {"OpJump", []int{2}},
+	OpNull:           {"OpNull", []int{}},
+	OpGetGlobal:      {"OpGetGlobal", []int{2}},
+	OpSetGlobal:      {"OpSetGlobal", []int{2}},
+	OpArray:          {"OpArray", []int{2}}, //操作数为数组中元素个数
+	OpHash:           {"OpHash", []int{2}},  //操作数为hash中k个数和v个数之和
+	OpIndex:          {"OpIndex", []int{}},
+	OpReturnValue:    {"OpReturnValue", []int{}},
+	OpReturn:         {"OpReturn", []int{}},
+	OpGetLocal:       {"OpGetLocal", []int{1}},
+	OpSetLocal:       {"OpSetLocal", []int{1}},
+	OpCall:           {"OpCall", []int{1}}, //操作数为参数个数
+	OpGetBuiltin:     {"OpGetBuiltin", []int{1}},
+	OpClosure:        {"OpClosure", []int{2, 1}}, //第一个操作数为常量索引用于找object.CompiledFunction,第二个操作数表示自由变量的个数
+	OpGetFree:        {"OpGetFree", []int{1}},
+	OpCurrentClosure: {"OpCurrentClosure", []int{}},
 }
 
 func Lookup(op byte) (*Definition, error) {
@@ -140,6 +146,8 @@ func (ins Instructions) fmtInstruction(def *Definition, operands []int) string {
 		return def.Name
 	case 1:
 		return fmt.Sprintf("%s %d", def.Name, operands[0])
+	case 2:
+		return fmt.Sprintf("%s %d %d", def.Name, operands[0], operands[1])
 	}
 	return fmt.Sprintf("error: unhandled operandCount for %s\n", def.Name)
 }

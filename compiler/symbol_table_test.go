@@ -128,8 +128,6 @@ func TestResolveNestedLocal(t *testing.T) {
 			[]Symbol{
 				{Name: "a", Scope: GlobalScope, Index: 0},
 				{Name: "b", Scope: GlobalScope, Index: 1},
-				{Name: "c", Scope: LocalScope, Index: 0},
-				{Name: "d", Scope: LocalScope, Index: 1},
 				{Name: "e", Scope: LocalScope, Index: 0},
 				{Name: "f", Scope: LocalScope, Index: 1},
 			},
@@ -176,5 +174,101 @@ func TestDefineResolveBuiltins(t *testing.T) {
 				t.Errorf("expected %s to resolve to %+v,got=%+v", sym.Name, sym, res)
 			}
 		}
+	}
+}
+
+func TestResolveFree(t *testing.T) {
+	global := NewSymbolTable()
+	global.Define("a")
+	global.Define("b")
+	firstLocal := NewEnclosedSymbolTable(global)
+	firstLocal.Define("c")
+	firstLocal.Define("d")
+	secondLocal := NewEnclosedSymbolTable(firstLocal)
+	secondLocal.Define("e")
+	secondLocal.Define("f")
+
+	tests := []struct {
+		table               *SymbolTable
+		expectedSymbols     []Symbol
+		expectedFreeSymbols []Symbol
+	}{
+		{
+			firstLocal,
+			[]Symbol{
+				{Name: "a", Scope: GlobalScope, Index: 0},
+				{Name: "b", Scope: GlobalScope, Index: 1},
+				{Name: "c", Scope: LocalScope, Index: 0},
+				{Name: "d", Scope: LocalScope, Index: 1},
+			},
+			[]Symbol{},
+		},
+		{
+			secondLocal,
+			[]Symbol{
+				{Name: "a", Scope: GlobalScope, Index: 0},
+				{Name: "b", Scope: GlobalScope, Index: 1},
+				{Name: "c", Scope: FreeScope, Index: 0},
+				{Name: "d", Scope: FreeScope, Index: 1},
+				{Name: "e", Scope: LocalScope, Index: 0},
+				{Name: "f", Scope: LocalScope, Index: 1},
+			},
+			[]Symbol{
+				{Name: "c", Scope: LocalScope, Index: 0},
+				{Name: "d", Scope: LocalScope, Index: 1},
+			},
+		},
+	}
+	for _, ts := range tests {
+		for _, sym := range ts.expectedSymbols {
+			res, ok := ts.table.Resolve(sym.Name)
+			if !ok {
+				t.Errorf("name %s not resolvable", sym.Name)
+				continue
+			}
+			if res != sym {
+				t.Errorf("expected %s to resolve to %+v, got=%+v", sym.Name, sym, res)
+			}
+		}
+		if len(ts.expectedFreeSymbols) != len(ts.table.FreeSymbols) {
+			t.Errorf("wrong number of free symbols. got=%d, want=%d",
+				len(ts.table.FreeSymbols), len(ts.expectedFreeSymbols))
+			continue
+		}
+		for i, sym := range ts.expectedFreeSymbols {
+			res := ts.table.FreeSymbols[i]
+			if res != sym {
+				t.Errorf("wrong free symbol. got=%+v, want=%+v",
+					res, sym)
+			}
+		}
+	}
+}
+
+func TestDefineAndResolveFunctionName(t *testing.T) {
+	global := NewSymbolTable()
+	global.DefineFunctionName("a")
+	expected := Symbol{Name: "a", Scope: FunctionScope, Index: 0}
+	result, ok := global.Resolve(expected.Name)
+	if !ok {
+		t.Fatalf("function name %s not resolvable", expected.Name)
+	}
+	if result != expected {
+		t.Errorf("expected %s to resolve to %+v, got=%+v",
+			expected.Name, expected, result)
+	}
+}
+
+func TestShadowingFunctionName(t *testing.T) {
+	global := NewSymbolTable()
+	global.DefineFunctionName("a")
+	global.Define("a")
+	expected := Symbol{Name: "a", Scope: GlobalScope, Index: 0}
+	result, ok := global.Resolve(expected.Name)
+	if !ok {
+		t.Fatalf("function name %s not resolvable", expected.Name)
+	}
+	if result != expected {
+		t.Errorf("expected %s to resolve to %+v, got=%+v", expected.Name, expected, result)
 	}
 }
